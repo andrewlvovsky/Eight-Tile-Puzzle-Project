@@ -48,6 +48,22 @@ class Puzzle:
     def print(self):
         print_matrix(self.puzzle_matrix)
 
+# ============ Tree/Node Classes ============
+
+
+class Node:
+    def __init__(self, puzzle):
+        self.puzzle = puzzle
+        self.child = []
+
+    def create_children(self, num_of_children, new_puzzle_state):
+        for i in range(0, num_of_children):
+            self.child.append(Node(new_puzzle_state))
+
+    # def set_children_values(self, list):
+    #     for i in range(0, len(list)):
+    #         self.data.append(list[i])
+
 
 # ============ Helper Functions ============ #
 
@@ -65,7 +81,7 @@ def init_random_puzzle(puzzle_matrix, size_of_matrix):
     while len(puzzle_matrix) < size_of_matrix:
         current_row = []
         while len(current_row) < size_of_matrix:
-            rand_num = randint(0, size_of_matrix^2 - 1)
+            rand_num = randint(0, size_of_matrix ^ 2 - 1)
             if rand_num not in used_numbers:
                 current_row.append(rand_num)
                 used_numbers.append(rand_num)
@@ -83,7 +99,6 @@ def print_matrix(matrix):
 def run_interface():
     print("Welcome to Andrew Lvovsky's Eight-Puzzle Solver!")
     response = ""
-    puzzle_loaded = False
 
     while response != "1" and response != "2":
         print("Type '1' to use a default puzzle, or '2' to enter your own puzzle")
@@ -92,8 +107,15 @@ def run_interface():
         if response == "1":
             print("Using a default puzzle...")
             # Take a saved puzzle from an array and solve it
-            puzzle_loaded = True
-
+            default_puzzles = [
+                [[4, 0, 3], [6, 8, 7], [5, 2, 1]],
+                [[1, 6, 3], [2, 7, 0], [5, 4, 8]],
+                [[8, 0, 5], [4, 3, 7], [1, 6, 2]],
+                [[2, 5, 1], [8, 4, 0], [3, 7, 6]],
+                [[7, 0, 2], [4, 6, 3], [8, 5, 1]],
+            ]
+            # Constructing Puzzle object directly
+            puzzle_matrix = Puzzle(default_puzzles[randint(0, len(default_puzzles))], 3)
         elif response == "2":
             print("Enter your puzzle, use a zero to represent the blank.")
             first_row = input("Enter the first row, using a space between numbers: ")
@@ -103,8 +125,7 @@ def run_interface():
             third_row = input("Enter the third row, using a space between numbers: ")
             third_row = [int(s) for s in third_row.split() if s.isdigit()]
 
-            puzzle_matrix = [first_row, second_row, third_row]
-            puzzle_loaded = True
+            puzzle_matrix = Puzzle([first_row, second_row, third_row], 3)
         else:
             print("'" + response + "' is not a valid response.")
 
@@ -118,7 +139,9 @@ def run_interface():
         response = input()
 
         if response == "1":
-            print("Running Uniform Cost Search")
+            print("Running Uniform Cost Search on")
+            puzzle_matrix.print()
+            uniform_cost_search(puzzle_matrix)
             # run UCS
         elif response == "2":
             print("Running A* w/ Misplaced Tile Heuristic")
@@ -150,12 +173,11 @@ def puzzle_movement_test():
         p.print()
 
 
-def uniform_cost_search():
-    print("placeholder")
+def uniform_cost_search(puzzle_matrix):
+    node = Node(puzzle_matrix)
 
 # ============ Main ============ #
 
-# run_interface()
+
+run_interface()
 # puzzle_movement_test()
-
-
