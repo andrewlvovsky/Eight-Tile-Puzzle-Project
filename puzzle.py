@@ -1,7 +1,9 @@
 from random import *
 from sys import maxsize
 from copy import deepcopy
-import cProfile, io, pstats
+import cProfile
+import io
+import pstats
 
 num_of_children_expanded = max_depth = max_num_of_nodes_in_queue = 0
 existing_states = []
@@ -76,14 +78,6 @@ class Node:
         self.child = []
         self.path_cost = path_cost
         self.heuristic_cost = heuristic_cost
-
-    # def create_children(self, num_of_children, new_puzzle_state, new_path_cost, new_heuristic_cost):
-    #     for i in range(0, num_of_children):
-    #         self.child.append(Node(new_puzzle_state, new_path_cost))
-
-    # def set_children_values(self, list):
-    #     for i in range(0, len(list)):
-    #         self.data.append(list[i])
 
 
 # ============ Helper Functions ============ #
@@ -220,21 +214,64 @@ def puzzle_movement_test():
 # ============ Search-Related Functions ============ #
 
 
-def remove_node(list_of_nodes):
-    lowest_cost = index_of_node_to_remove = maxsize  # using sys.maxsize
-    for i in range(len(list_of_nodes)):
-        if list_of_nodes[i].path_cost + list_of_nodes[i].heuristic_cost < lowest_cost:
-            lowest_cost = list_of_nodes[i].path_cost + list_of_nodes[i].heuristic_cost
-            index_of_node_to_remove = i
-    node_to_return = list_of_nodes[index_of_node_to_remove]
-    list_of_nodes.pop(index_of_node_to_remove)
-    return node_to_return, index_of_node_to_remove
-
-
 def copy_new_node_into_list(node, children_list):
     new_child = deepcopy(node)  # creates a child node by copying parent node with new legal move
     new_child.path_cost += 1    # increments path cost (g(n))
     children_list.append(new_child)
+
+
+def compare_goal_state(node, i, j):
+    row = column = 0
+    val = node.puzzle.puzzle_matrix[i][j]
+
+    if val == 1:
+        row = column = 0
+    elif val == 2:
+        row = 0
+        column = 1
+    elif val == 3:
+        row = 0
+        column = 2
+    elif val == 4:
+        row = 1
+        column = 0
+    elif val == 5:
+        row = column = 1
+    elif val == 6:
+        row = 1
+        column = 2
+    elif val == 7:
+        row = 2
+        column = 0
+    elif val == 8:
+        row = 2
+        column = 1
+
+    return row, column
+
+
+def check_for_misplaced_tiles(node):
+    num_of_misplaced_tiles = 0
+    for column in range(len(node.puzzle.puzzle_matrix)):
+        for row in range(len(node.puzzle.puzzle_matrix[column])):
+            if node.puzzle.puzzle_matrix[column][row] != node.puzzle.goal_state[column][row]:
+                if node.puzzle.puzzle_matrix[column][row] != 0:
+                    num_of_misplaced_tiles += 1
+
+    return num_of_misplaced_tiles
+
+
+def manhattan_distance(node):
+    heuristic_cost = 0
+
+    for i in range(node.puzzle.size):
+        for j in range(node.puzzle.size):
+            if node.puzzle.puzzle_matrix[i][j] != 0:
+                row_change, column_change = compare_goal_state(node, i, j)
+                heuristic_cost += abs(i - row_change)
+                heuristic_cost += abs(j - column_change)
+
+    return heuristic_cost
 
 
 def expand_node(node):
@@ -275,6 +312,17 @@ def expand_node(node):
     return children
 
 
+def remove_node(list_of_nodes):
+    lowest_cost = index_of_node_to_remove = maxsize  # using sys.maxsize
+    for i in range(len(list_of_nodes)):
+        if list_of_nodes[i].path_cost + list_of_nodes[i].heuristic_cost < lowest_cost:
+            lowest_cost = list_of_nodes[i].path_cost + list_of_nodes[i].heuristic_cost
+            index_of_node_to_remove = i
+    node_to_return = list_of_nodes[index_of_node_to_remove]
+    list_of_nodes.pop(index_of_node_to_remove)
+    return node_to_return, index_of_node_to_remove
+
+
 def queueing_function(response, index, node_list, node):
     children_nodes = expand_node(node)
 
@@ -284,79 +332,15 @@ def queueing_function(response, index, node_list, node):
             index += 1
     elif response == "2" or response == "3":
         for child in children_nodes:
-            if not node_list:
-                child = children_nodes.pop()
-                node_list.append(child)
             if response == "2":
                 child.heuristic_cost = check_for_misplaced_tiles(child)
             elif response == "3":
                 child.heuristic_cost = manhattan_distance(child)
-                # print("=========================================================")
-                # child.puzzle.print()
-                # print("child's heuristic cost for above matrix ^^^^^: " + str(child.heuristic_cost))
-                # print("=========================================================")
-            for i in range(len(node_list)):
-                if child.path_cost + child.heuristic_cost < node_list[i].path_cost + node_list[i].heuristic_cost:
-                    node_list.insert(i, child)
-                    print("i'm inserting")
-                elif i == len(node_list) - 1:
-                    node_list.append(child)
+            if child.puzzle.puzzle_matrix not in existing_states:
+                node_list.append(child)
+                existing_states.append(child.puzzle.puzzle_matrix)
 
     return node_list
-
-
-def check_for_misplaced_tiles(node):
-    num_of_misplaced_tiles = 0
-    for column in range(len(node.puzzle.puzzle_matrix)):
-        for row in range(len(node.puzzle.puzzle_matrix[column])):
-            if node.puzzle.puzzle_matrix[column][row] != node.puzzle.goal_state[column][row]:
-                if node.puzzle.puzzle_matrix[column][row] != 0:
-                    num_of_misplaced_tiles += 1
-
-    return num_of_misplaced_tiles
-
-
-def compare_goal_state(node, i, j):
-    row = column = 0
-    val = node.puzzle.puzzle_matrix[i][j]
-
-    if val == 1:
-        row = column = 0
-    elif val == 2:
-        row = 0
-        column = 1
-    elif val == 3:
-        row = 0
-        column = 2
-    elif val == 4:
-        row = 1
-        column = 0
-    elif val == 5:
-        row = column = 1
-    elif val == 6:
-        row = 1
-        column = 2
-    elif val == 7:
-        row = 2
-        column = 0
-    elif val == 8:
-        row = 2
-        column = 1
-
-    return row, column
-
-
-def manhattan_distance(node):
-    heuristic_cost = 0
-
-    for i in range(node.puzzle.size):
-        for j in range(node.puzzle.size):
-            if node.puzzle.puzzle_matrix[i][j] != 0:
-                row_change, column_change = compare_goal_state(node, i, j)
-                heuristic_cost += abs(i - row_change)
-                heuristic_cost += abs(j - column_change)
-
-    return heuristic_cost
 
 
 def general_search(response, problem, queueing_func):
