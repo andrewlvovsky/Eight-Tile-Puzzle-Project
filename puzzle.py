@@ -328,8 +328,10 @@ def queueing_function(response, index, node_list, node):
 
     if response == "1":
         for child in children_nodes:
-            node_list.insert(index, child)
-            index += 1
+            if child.puzzle.puzzle_matrix not in existing_states:
+                node_list.insert(index, child)
+                index += 1
+                existing_states.append(child.puzzle.puzzle_matrix)
     elif response == "2" or response == "3":
         for child in children_nodes:
             if response == "2":
