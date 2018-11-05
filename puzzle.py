@@ -1,8 +1,10 @@
 from random import *
 from sys import maxsize
 from copy import deepcopy
+import cProfile, io, pstats
 
-num_of_children_expanded = max_depth = 0
+num_of_children_expanded = max_depth = max_num_of_nodes_in_queue = 0
+existing_states = []
 
 # ============ Puzzle Class ============ #
 
@@ -49,6 +51,7 @@ class Puzzle:
         for i in range(self.size):
             if self.puzzle_matrix[i][self.size - 1] == 0:
                 zero_not_in_leftmost_column = False
+                break
         if zero_not_in_leftmost_column:
             self.swap_tiles(self.empty_pos_x + 1, self.empty_pos_y)
             self.empty_pos_x += 1
@@ -68,14 +71,15 @@ class Puzzle:
 
 
 class Node:
-    def __init__(self, puzzle, path_cost):
+    def __init__(self, puzzle, path_cost, heuristic_cost):
         self.puzzle = puzzle
         self.child = []
         self.path_cost = path_cost
+        self.heuristic_cost = heuristic_cost
 
-    def create_children(self, num_of_children, new_puzzle_state, new_path_cost):
-        for i in range(0, num_of_children):
-            self.child.append(Node(new_puzzle_state, new_path_cost))
+    # def create_children(self, num_of_children, new_puzzle_state, new_path_cost, new_heuristic_cost):
+    #     for i in range(0, num_of_children):
+    #         self.child.append(Node(new_puzzle_state, new_path_cost))
 
     # def set_children_values(self, list):
     #     for i in range(0, len(list)):
@@ -156,28 +160,39 @@ def run_interface():
         response = input()
         print("")
 
+        pr = cProfile.Profile()
+        pr.enable()
+
         if response == "1":
             print("Running Uniform Cost Search on")
             puzzle.print()
             print("")
             node = general_search(response, puzzle, queueing_function)
         elif response == "2":
-            print("Running A* w/ Misplaced Tile Heuristic")
-            # run A* w/ Misplaced Tile Heuristic
+            print("Running A* w/ Misplaced Tile Heuristic on")
+            puzzle.print()
+            node = general_search(response, puzzle, queueing_function)
         elif response == "3":
-            print("Running A* w/ Manhattan Distance Heuristic")
+            print("Running A* w/ Manhattan Distance Heuristic on")
             # run A* w/ Manhattan Distance Heuristic
         else:
             print("'" + response + "' is not a valid response.")
 
-        if node:
+        if not node:
+            print("No solution was found.")
+        elif node.puzzle.puzzle_matrix == node.puzzle.goal_state:
             print("Winner Winner Chicken Dinner!")
             print("")
             print("Total nodes expanded: " + str(num_of_children_expanded))
-            print("Max num of nodes in queue at any time: ")
-            print("Depth of goal node: ")
-        else:
-            print("No solution was found.")
+            print("Max num of nodes in queue at any time: " + str(max_num_of_nodes_in_queue))
+            print("Depth of goal node: " + str(max_depth))
+
+        pr.disable()
+        s = io.StringIO()
+        sortby = 'cumulative'
+        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+        ps.print_stats()
+        print(s.getvalue())
 
 
 def puzzle_movement_test():
@@ -199,14 +214,14 @@ def puzzle_movement_test():
             p.move_right()
         p.print()
 
-# ============ Search Functions ============ #
+# ============ Search-Related Functions ============ #
 
 
 def remove_node(list_of_nodes):
-    lowest_path_cost = index_of_node_to_remove = maxsize  # using sys.maxsize
+    lowest_cost = index_of_node_to_remove = maxsize  # using sys.maxsize
     for i in range(len(list_of_nodes)):
-        if list_of_nodes[i].path_cost < lowest_path_cost:
-            lowest_path_cost = list_of_nodes[i].path_cost
+        if list_of_nodes[i].path_cost + list_of_nodes[i].heuristic_cost < lowest_cost:
+            lowest_cost = list_of_nodes[i].path_cost + list_of_nodes[i].heuristic_cost
             index_of_node_to_remove = i
     node_to_return = list_of_nodes[index_of_node_to_remove]
     list_of_nodes.pop(index_of_node_to_remove)
@@ -220,50 +235,95 @@ def copy_new_node_into_list(node, children_list):
 
 
 def expand_node(node):
+    print("The best state to expand with a g(n) = " + str(node.path_cost) +
+          " and h(n) = " + str(node.heuristic_cost) + " is...")
+    node.puzzle.print()
+    print("Expanding this node...")
+    print("")
+
+    global num_of_children_expanded
+
     children = []
 
     if node.puzzle.move_up():
+        # if node.puzzle.puzzle_matrix not in existing_states:
+        existing_states.append(node.puzzle.puzzle_matrix)
         copy_new_node_into_list(node, children)
         node.puzzle.move_down()     # resets move to original pos so future moves can be made
     if node.puzzle.move_down():
+        # if node.puzzle.puzzle_matrix not in existing_states:
+        existing_states.append(node.puzzle.puzzle_matrix)
         copy_new_node_into_list(node, children)
         node.puzzle.move_up()
     if node.puzzle.move_left():
+        # if node.puzzle.puzzle_matrix not in existing_states:
+        existing_states.append(node.puzzle.puzzle_matrix)
         copy_new_node_into_list(node, children)
         node.puzzle.move_right()
     if node.puzzle.move_right():
+        # if node.puzzle.puzzle_matrix not in existing_states:
+        existing_states.append(node.puzzle.puzzle_matrix)
         copy_new_node_into_list(node, children)
         node.puzzle.move_left()
 
-    global num_of_children_expanded
+    # print(existing_states)
+
     num_of_children_expanded += len(children)
     return children
 
 
 def queueing_function(response, index, node_list, node):
-
     children_nodes = expand_node(node)
 
     if response == "1":
         for child in children_nodes:
             node_list.insert(index, child)
             index += 1
-        return node_list
+    elif response == "2":
+        for child in children_nodes:
+            if not node_list:
+                child = children_nodes.pop()
+                node_list.append(child)
+            child.heuristic_cost = check_for_misplaced_tiles(child)
+            for i in range(len(node_list)):
+                if child.path_cost + child.heuristic_cost < node_list[i].path_cost + node_list[i].heuristic_cost:
+                    node_list.insert(i, child)
+                elif i == len(node_list) - 1:
+                    node_list.append(child)
+
+    return node_list
+
+
+def check_for_misplaced_tiles(node):
+    num_of_misplaced_tiles = 0
+    for column in range(len(node.puzzle.puzzle_matrix)):
+        for row in range(len(node.puzzle.puzzle_matrix[column])):
+            if node.puzzle.puzzle_matrix[column][row] != node.puzzle.goal_state[column][row]:
+                if node.puzzle.puzzle_matrix[column][row] != 0:
+                    num_of_misplaced_tiles += 1
+    return num_of_misplaced_tiles
 
 
 def general_search(response, problem, queueing_func):
-    nodes = [Node(problem, 0)]    # path_cost (g(n)) set to 0
+    global max_num_of_nodes_in_queue, max_depth
+    node = Node(problem, 0, 0)  # path_cost (g(n)) set to 0, heuristic_cost (h(n)) set to 0
+    if response == "2":
+        node.heuristic_cost = check_for_misplaced_tiles(node)
+    nodes = [node]
     while True:
+        max_num_of_nodes_in_queue = max(len(nodes), max_num_of_nodes_in_queue)
         if not nodes:   # if no nodes, return failure
-            return -1
+            return []
         (node, index) = remove_node(nodes)
         if problem.goal_state == node.puzzle.puzzle_matrix:
+            max_depth = node.path_cost
             return node
 
-        print("The best state to expand with a g(n) = " + str(node.path_cost) + " and h(n) = 0 is...")
-        node.puzzle.print()
-        print("Expanding this node...")
-        print("")
+        # print("The best state to expand with a g(n) = " + str(node.path_cost) +
+        #       " and h(n) = " + str(node.heuristic_cost) + " is...")
+        # node.puzzle.print()
+        # print("Expanding this node...")
+        # print("")
 
         nodes = queueing_func(response, index, nodes, node)
 
