@@ -96,21 +96,6 @@ def find_empty_tile(puzzle_matrix):
                 return row, column
 
 
-def init_random_puzzle(puzzle_matrix, size_of_matrix):
-    used_numbers = []
-
-    while len(puzzle_matrix) < size_of_matrix:
-        current_row = []
-        while len(current_row) < size_of_matrix:
-            rand_num = randint(0, size_of_matrix ^ 2 - 1)
-            if rand_num not in used_numbers:
-                current_row.append(rand_num)
-                used_numbers.append(rand_num)
-        puzzle_matrix.append(current_row)
-
-    print(puzzle_matrix)
-
-
 def print_matrix(matrix):
     for row in matrix:
         print("\t" + ' '.join([str(elem) for elem in row]))
@@ -119,7 +104,7 @@ def print_matrix(matrix):
 def run_interface():
     print("Welcome to Andrew Lvovsky's Eight-Puzzle Solver!")
     response = ""
-    puzzle = None
+    puzzle = node = None
 
     while response != "1" and response != "2":
         print("Type '1' to use a default puzzle, or '2' to enter your own puzzle")
@@ -171,10 +156,13 @@ def run_interface():
         elif response == "2":
             print("Running A* w/ Misplaced Tile Heuristic on")
             puzzle.print()
+            print("")
             node = general_search(response, puzzle, queueing_function)
         elif response == "3":
             print("Running A* w/ Manhattan Distance Heuristic on")
-            # run A* w/ Manhattan Distance Heuristic
+            puzzle.print()
+            print("")
+            node = general_search(response, puzzle, queueing_function)
         else:
             print("'" + response + "' is not a valid response.")
 
@@ -193,6 +181,21 @@ def run_interface():
         ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
         ps.print_stats()
         print(s.getvalue())
+
+
+def init_random_puzzle(puzzle_matrix, size_of_matrix):
+    used_numbers = []
+
+    while len(puzzle_matrix) < size_of_matrix:
+        current_row = []
+        while len(current_row) < size_of_matrix:
+            rand_num = randint(0, size_of_matrix ^ 2 - 1)
+            if rand_num not in used_numbers:
+                current_row.append(rand_num)
+                used_numbers.append(rand_num)
+        puzzle_matrix.append(current_row)
+
+    print(puzzle_matrix)
 
 
 def puzzle_movement_test():
@@ -279,15 +282,23 @@ def queueing_function(response, index, node_list, node):
         for child in children_nodes:
             node_list.insert(index, child)
             index += 1
-    elif response == "2":
+    elif response == "2" or response == "3":
         for child in children_nodes:
             if not node_list:
                 child = children_nodes.pop()
                 node_list.append(child)
-            child.heuristic_cost = check_for_misplaced_tiles(child)
+            if response == "2":
+                child.heuristic_cost = check_for_misplaced_tiles(child)
+            elif response == "3":
+                child.heuristic_cost = manhattan_distance(child)
+                # print("=========================================================")
+                # child.puzzle.print()
+                # print("child's heuristic cost for above matrix ^^^^^: " + str(child.heuristic_cost))
+                # print("=========================================================")
             for i in range(len(node_list)):
                 if child.path_cost + child.heuristic_cost < node_list[i].path_cost + node_list[i].heuristic_cost:
                     node_list.insert(i, child)
+                    print("i'm inserting")
                 elif i == len(node_list) - 1:
                     node_list.append(child)
 
@@ -301,7 +312,51 @@ def check_for_misplaced_tiles(node):
             if node.puzzle.puzzle_matrix[column][row] != node.puzzle.goal_state[column][row]:
                 if node.puzzle.puzzle_matrix[column][row] != 0:
                     num_of_misplaced_tiles += 1
+
     return num_of_misplaced_tiles
+
+
+def compare_goal_state(node, i, j):
+    row = column = 0
+    val = node.puzzle.puzzle_matrix[i][j]
+
+    if val == 1:
+        row = column = 0
+    elif val == 2:
+        row = 0
+        column = 1
+    elif val == 3:
+        row = 0
+        column = 2
+    elif val == 4:
+        row = 1
+        column = 0
+    elif val == 5:
+        row = column = 1
+    elif val == 6:
+        row = 1
+        column = 2
+    elif val == 7:
+        row = 2
+        column = 0
+    elif val == 8:
+        row = 2
+        column = 1
+
+    return row, column
+
+
+def manhattan_distance(node):
+    heuristic_cost = 0
+
+    for i in range(node.puzzle.size):
+        for j in range(node.puzzle.size):
+            if node.puzzle.puzzle_matrix[i][j] != 0:
+                row_change, column_change = compare_goal_state(node, i, j)
+                heuristic_cost += abs(i - row_change)
+                heuristic_cost += abs(j - column_change)
+
+    return heuristic_cost
 
 
 def general_search(response, problem, queueing_func):
@@ -309,6 +364,8 @@ def general_search(response, problem, queueing_func):
     node = Node(problem, 0, 0)  # path_cost (g(n)) set to 0, heuristic_cost (h(n)) set to 0
     if response == "2":
         node.heuristic_cost = check_for_misplaced_tiles(node)
+    if response == "3":
+        node.heuristic_cost = manhattan_distance(node)
     nodes = [node]
     while True:
         max_num_of_nodes_in_queue = max(len(nodes), max_num_of_nodes_in_queue)
@@ -318,12 +375,6 @@ def general_search(response, problem, queueing_func):
         if problem.goal_state == node.puzzle.puzzle_matrix:
             max_depth = node.path_cost
             return node
-
-        # print("The best state to expand with a g(n) = " + str(node.path_cost) +
-        #       " and h(n) = " + str(node.heuristic_cost) + " is...")
-        # node.puzzle.print()
-        # print("Expanding this node...")
-        # print("")
 
         nodes = queueing_func(response, index, nodes, node)
 
