@@ -18,8 +18,8 @@ Uniform cost search is a search that takes the route with the lowest cost. In th
 
 For my test cases, I chose 3 puzzles of varying depth. Because of time-constraints, I didn’t choose puzzles that required more than 12 moves to solve for the sake of the uniform cost search’s poor health. On the next page, there are graphs of the number of nodes that were expanded in each case, as well as the maximum size that the queue held throughout the runtime.
 
-![alt text](https://imgur.com/WXtnGIz "Max Size of Queue")
+![alt text](https://i.imgur.com/WXtnGIz.png "Max Size of Queue")
 
-![alt text](https://imgur.com/rUuKeTm "Number of Nodes Expanded")
+![alt text](https://i.imgur.com/rUuKeTm.png "Number of Nodes Expanded")
 
 As seen, the A* Manhattan distance heuristic search surpasses misplaced by a little but uniform cost search by quite a lot (both in terms of time and space). I was a bit surprised to see how a puzzle with a depth of 12 stored more nodes in its queue than the puzzle with a depth of 15.
