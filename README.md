@@ -1,4 +1,4 @@
-# Eight Puzzle Project
+# Eight-Tile Puzzle Project
 
 ### Introduction
 
